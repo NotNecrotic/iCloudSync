@@ -1,29 +1,27 @@
 {
   "version": 2,
-  "dgSpecHash": "Zcn21wukAGU=",
+  "dgSpecHash": "PZ4TALyheYo=",
   "success": true,
-  "projectFilePath": "C:\\Users\\Necrotic\\Documents\\GitHub\\iCloudSync\\iCloudSync\\iCloudSync.csproj",
+  "projectFilePath": "C:\\Users\\fearnd\\OneDrive - Papanui High School\\Documents\\GitHub\\iCloudSync\\iCloudSync\\iCloudSync.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\Necrotic\\.nuget\\packages\\h.generatedicons.system.drawing\\2.4.1\\h.generatedicons.system.drawing.2.4.1.nupkg.sha512",
-    "C:\\Users\\Necrotic\\.nuget\\packages\\h.notifyicon\\2.4.1\\h.notifyicon.2.4.1.nupkg.sha512",
-    "C:\\Users\\Necrotic\\.nuget\\packages\\h.notifyicon.wpf\\2.4.1\\h.notifyicon.wpf.2.4.1.nupkg.sha512",
-    "C:\\Users\\Necrotic\\.nuget\\packages\\microsoft.win32.systemevents\\10.0.0\\microsoft.win32.systemevents.10.0.0.nupkg.sha512",
-    "C:\\Users\\Necrotic\\.nuget\\packages\\system.drawing.common\\10.0.0\\system.drawing.common.10.0.0.nupkg.sha512",
-    "C:\\Users\\Necrotic\\.nuget\\packages\\system.memory\\4.6.0\\system.memory.4.6.0.nupkg.sha512",
-    "C:\\Users\\Necrotic\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\6.1.0\\system.runtime.compilerservices.unsafe.6.1.0.nupkg.sha512",
-    "C:\\Users\\Necrotic\\.nuget\\packages\\system.valuetuple\\4.5.0\\system.valuetuple.4.5.0.nupkg.sha512"
+    "C:\\Users\\fearnd\\.nuget\\packages\\h.generatedicons.system.drawing\\2.4.1\\h.generatedicons.system.drawing.2.4.1.nupkg.sha512",
+    "C:\\Users\\fearnd\\.nuget\\packages\\h.notifyicon\\2.4.1\\h.notifyicon.2.4.1.nupkg.sha512",
+    "C:\\Users\\fearnd\\.nuget\\packages\\h.notifyicon.wpf\\2.4.1\\h.notifyicon.wpf.2.4.1.nupkg.sha512",
+    "C:\\Users\\fearnd\\.nuget\\packages\\microsoft.win32.systemevents\\10.0.0\\microsoft.win32.systemevents.10.0.0.nupkg.sha512",
+    "C:\\Users\\fearnd\\.nuget\\packages\\system.drawing.common\\10.0.0\\system.drawing.common.10.0.0.nupkg.sha512",
+    "C:\\Users\\fearnd\\.nuget\\packages\\system.memory\\4.6.0\\system.memory.4.6.0.nupkg.sha512",
+    "C:\\Users\\fearnd\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\6.1.0\\system.runtime.compilerservices.unsafe.6.1.0.nupkg.sha512",
+    "C:\\Users\\fearnd\\.nuget\\packages\\system.valuetuple\\4.5.0\\system.valuetuple.4.5.0.nupkg.sha512"
   ],
   "logs": [
     {
       "code": "NU1701",
       "level": "Warning",
-      "message": "Package 'H.NotifyIcon.Wpf 2.4.1' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net9.0-windows7.0'. This package may not be fully compatible with your project.",
-      "projectPath": "C:\\Users\\Necrotic\\Documents\\GitHub\\iCloudSync\\iCloudSync\\iCloudSync.csproj",
       "warningLevel": 1,
-      "filePath": "C:\\Users\\Necrotic\\Documents\\GitHub\\iCloudSync\\iCloudSync\\iCloudSync.csproj",
+      "message": "Package 'H.NotifyIcon.Wpf 2.4.1' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0-windows7.0'. This package may not be fully compatible with your project.",
       "libraryId": "H.NotifyIcon.Wpf",
       "targetGraphs": [
-        "net9.0-windows7.0"
+        "net8.0-windows7.0"
       ]
     }
   ]

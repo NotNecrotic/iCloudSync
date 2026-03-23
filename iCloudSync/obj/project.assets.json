@@ -1,7 +1,7 @@
 {
   "version": 3,
   "targets": {
-    "net9.0-windows7.0": {
+    "net8.0-windows7.0": {
       "H.GeneratedIcons.System.Drawing/2.4.1": {
         "type": "package",
         "dependencies": {
@@ -56,12 +56,12 @@
       "Microsoft.Win32.SystemEvents/10.0.0": {
         "type": "package",
         "compile": {
-          "lib/net9.0/Microsoft.Win32.SystemEvents.dll": {
+          "lib/net8.0/Microsoft.Win32.SystemEvents.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net9.0/Microsoft.Win32.SystemEvents.dll": {
+          "lib/net8.0/Microsoft.Win32.SystemEvents.dll": {
             "related": ".xml"
           }
         },
@@ -69,7 +69,7 @@
           "buildTransitive/net8.0/_._": {}
         },
         "runtimeTargets": {
-          "runtimes/win/lib/net9.0/Microsoft.Win32.SystemEvents.dll": {
+          "runtimes/win/lib/net8.0/Microsoft.Win32.SystemEvents.dll": {
             "assetType": "runtime",
             "rid": "win"
           }
@@ -81,24 +81,24 @@
           "Microsoft.Win32.SystemEvents": "10.0.0"
         },
         "compile": {
-          "lib/net9.0/System.Drawing.Common.dll": {
+          "lib/net8.0/System.Drawing.Common.dll": {
             "related": ".pdb;.xml"
           },
-          "lib/net9.0/System.Private.Windows.Core.dll": {
+          "lib/net8.0/System.Private.Windows.Core.dll": {
             "related": ".xml"
           },
-          "lib/net9.0/System.Private.Windows.GdiPlus.dll": {
+          "lib/net8.0/System.Private.Windows.GdiPlus.dll": {
             "related": ".xml"
           }
         },
         "runtime": {
-          "lib/net9.0/System.Drawing.Common.dll": {
+          "lib/net8.0/System.Drawing.Common.dll": {
             "related": ".pdb;.xml"
           },
-          "lib/net9.0/System.Private.Windows.Core.dll": {
+          "lib/net8.0/System.Private.Windows.Core.dll": {
             "related": ".xml"
           },
-          "lib/net9.0/System.Private.Windows.GdiPlus.dll": {
+          "lib/net8.0/System.Private.Windows.GdiPlus.dll": {
             "related": ".xml"
           }
         },
@@ -372,34 +372,34 @@
     }
   },
   "projectFileDependencyGroups": {
-    "net9.0-windows7.0": [
+    "net8.0-windows7.0": [
       "H.NotifyIcon.Wpf >= 2.4.1"
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Necrotic\\.nuget\\packages\\": {}
+    "C:\\Users\\fearnd\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Necrotic\\Documents\\GitHub\\iCloudSync\\iCloudSync\\iCloudSync.csproj",
+      "projectUniqueName": "C:\\Users\\fearnd\\OneDrive - Papanui High School\\Documents\\GitHub\\iCloudSync\\iCloudSync\\iCloudSync.csproj",
       "projectName": "iCloudSync",
-      "projectPath": "C:\\Users\\Necrotic\\Documents\\GitHub\\iCloudSync\\iCloudSync\\iCloudSync.csproj",
-      "packagesPath": "C:\\Users\\Necrotic\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Necrotic\\Documents\\GitHub\\iCloudSync\\iCloudSync\\obj\\",
+      "projectPath": "C:\\Users\\fearnd\\OneDrive - Papanui High School\\Documents\\GitHub\\iCloudSync\\iCloudSync\\iCloudSync.csproj",
+      "packagesPath": "C:\\Users\\fearnd\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\fearnd\\OneDrive - Papanui High School\\Documents\\GitHub\\iCloudSync\\iCloudSync\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\Necrotic\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\fearnd\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
-        "net9.0-windows"
+        "net8.0-windows"
       ],
       "sources": {
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
-        "net9.0-windows7.0": {
-          "targetAlias": "net9.0-windows",
+        "net8.0-windows7.0": {
+          "targetAlias": "net8.0-windows",
           "projectReferences": {}
         }
       },
@@ -412,12 +412,11 @@
         "enableAudit": "true",
         "auditLevel": "low",
         "auditMode": "direct"
-      },
-      "SdkAnalysisLevel": "9.0.300"
+      }
     },
     "frameworks": {
-      "net9.0-windows7.0": {
-        "targetAlias": "net9.0-windows",
+      "net8.0-windows7.0": {
+        "targetAlias": "net8.0-windows",
         "dependencies": {
           "H.NotifyIcon.Wpf": {
             "target": "Package",
@@ -443,7 +442,7 @@
             "privateAssets": "none"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.312/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.419/PortableRuntimeIdentifierGraph.json"
       }
     }
   },
@@ -452,10 +451,10 @@
       "code": "NU1701",
       "level": "Warning",
       "warningLevel": 1,
-      "message": "Package 'H.NotifyIcon.Wpf 2.4.1' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net9.0-windows7.0'. This package may not be fully compatible with your project.",
+      "message": "Package 'H.NotifyIcon.Wpf 2.4.1' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8, .NETFramework,Version=v4.8.1' instead of the project target framework 'net8.0-windows7.0'. This package may not be fully compatible with your project.",
       "libraryId": "H.NotifyIcon.Wpf",
       "targetGraphs": [
-        "net9.0-windows7.0"
+        "net8.0-windows7.0"
       ]
     }
   ]
