@@ -39,7 +39,7 @@
 
        <tb:TaskbarIcon x:Name="MyNotifyIcon" 
                         ToolTipText="iCloud Syncer"
-                        IconSource="/app_icon.ico">
+                        IconSource="pack://application:,,,/app_icon.ico">
             <tb:TaskbarIcon.ContextMenu>
                 <ContextMenu Background="#1E1E1E" Foreground="White">
                     <MenuItem Header="Open Dashboard" Click="ShowApp_Click" />
