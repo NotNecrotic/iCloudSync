@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
@@ -13,92 +14,129 @@ namespace ICloudSync
 {
     public partial class MainWindow : Window
     {
-        private DispatcherTimer _scheduler;
-        private CancellationTokenSource _cts;
+        private DispatcherTimer _scheduler = new();
+        private CancellationTokenSource? _cts;
         private string _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
         private bool _isExplicitExit = false;
-        private readonly string[] _photoExts = { ".jpg", ".jpeg", ".png", ".heic", ".webp", ".bmp" };
 
         public MainWindow()
         {
             InitializeComponent();
             LoadConfig();
             SetupScheduler();
-            _ = UpdateStorageStats(); // Run initial calculation
+            _ = UpdateStorageStats(); 
         }
 
-        #region Sync Engine (Mirror Mode)
+        #region Sync Engine (Dual-Source Mirror Mode)
         private async Task RunSyncProcess()
         {
-            if (!Directory.Exists(ICloudPathBox.Text) || !Directory.Exists(SyncPathBox.Text))
-            {
-                StatusText.Text = "Status: Invalid Paths";
-                return;
-            }
-
             SetUiState(isSyncing: true);
+            
+            // 1. CAPTURE UI VALUES (On the UI Thread)
+            // We must read these strings here because the background thread cannot touch UI objects
+            string pSource = PhotosSourceBox.Text;
+            string pDest = PhotosDestBox.Text;
+            string fSource = FilesSourceBox.Text;
+            string fDest = FilesDestBox.Text;
+
             _cts = new CancellationTokenSource();
 
             try
             {
-                string source = ICloudPathBox.Text;
-                string dest = SyncPathBox.Text;
-
-                var sourceFiles = Directory.GetFiles(source, "*.*", SearchOption.AllDirectories);
-                SyncProgressBar.Maximum = sourceFiles.Length;
+                // 2. Define the jobs using the captured strings and target labels
+                var syncJobs = new List<(string Source, string Dest, string Name, TextBlock SizeLabel)>
+                {
+                    (pSource, pDest, "Photos", PhotoSizeText),
+                    (fSource, fDest, "Files", FileSizeText)
+                };
 
                 await Task.Run(() =>
                 {
-                    // 1. Forward Sync (Copy & Overwrite)
-                    int count = 0;
-                    foreach (var srcFile in sourceFiles)
+                    foreach (var job in syncJobs)
                     {
-                        if (_cts.Token.IsCancellationRequested) return;
+                        // Safety check for empty or invalid paths
+                        if (string.IsNullOrWhiteSpace(job.Source) || !Directory.Exists(job.Source)) continue;
+                        if (string.IsNullOrWhiteSpace(job.Dest)) continue;
 
-                        string relPath = Path.GetRelativePath(source, srcFile);
-                        string destFile = Path.Combine(dest, relPath);
+                        Directory.CreateDirectory(job.Dest);
+                        var sourceFiles = Directory.GetFiles(job.Source, "*.*", SearchOption.AllDirectories);
+                        int totalFiles = sourceFiles.Length;
+                        int count = 0;
 
-                        Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
-                        File.Copy(srcFile, destFile, true); 
-
-                        count++;
-                        Dispatcher.Invoke(() => {
-                            SyncProgressBar.Value = count;
-                            StatusText.Text = $"Status: Mirroring {count}/{sourceFiles.Length}";
-                        });
-                    }
-
-                    // 2. Cleanup Phase (Delete from destination if missing in source)
-                    Dispatcher.Invoke(() => StatusText.Text = "Status: Finalizing Mirror...");
-                    var destFiles = Directory.GetFiles(dest, "*.*", SearchOption.AllDirectories);
-                    foreach (var dFile in destFiles)
-                    {
-                        if (_cts.Token.IsCancellationRequested) return;
-                        string rel = Path.GetRelativePath(dest, dFile);
-                        if (!File.Exists(Path.Combine(source, rel)))
+                        foreach (var srcFile in sourceFiles)
                         {
-                            File.Delete(dFile);
+                            if (_cts.Token.IsCancellationRequested) return;
+
+                            string relPath = Path.GetRelativePath(job.Source, srcFile);
+                            string destFile = Path.Combine(job.Dest, relPath);
+                            Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
+
+                            var fiSrc = new FileInfo(srcFile);
+                            var fiDest = new FileInfo(destFile);
+
+                            // Logic: Only copy if file is missing, size changed, or timestamp changed
+                            if (!fiDest.Exists || fiSrc.Length != fiDest.Length || fiSrc.LastWriteTime != fiDest.LastWriteTime)
+                            {
+                                File.Copy(srcFile, destFile, true);
+                            }
+
+                            count++;
+                            
+                            // Update UI every 10 files to maintain high performance
+                            if (count % 10 == 0 || count == totalFiles)
+                            {
+                                double progress = (double)count / totalFiles * 100;
+                                
+                                // Calculate sizes in the background thread
+                                long currentJobSize = GetDirSize(job.Dest); 
+                                
+                                // Calculate the "other" folder size using captured destination paths
+                                string otherDestPath = (job.Name == "Photos") ? fDest : pDest;
+                                long otherJobSize = GetDirSize(otherDestPath);
+
+                                // Push data to the UI thread
+                                Dispatcher.Invoke(() => {
+                                    StatusText.Text = $"Status: Syncing {job.Name} ({count}/{totalFiles})";
+                                    SyncProgressBar.Value = progress;
+                                    
+                                    // Update individual label and the total odometer
+                                    job.SizeLabel.Text = FormatBytes(currentJobSize);
+                                    TotalSizeText.Text = FormatBytes(currentJobSize + otherJobSize);
+                                });
+                            }
+                        }
+
+                        // Mirroring Cleanup: Remove files from Destination that no longer exist in Source
+                        var destFiles = Directory.GetFiles(job.Dest, "*.*", SearchOption.AllDirectories);
+                        foreach (var dFile in destFiles)
+                        {
+                            string rel = Path.GetRelativePath(job.Dest, dFile);
+                            if (!File.Exists(Path.Combine(job.Source, rel))) 
+                            {
+                                try { File.Delete(dFile); } catch { /* File may be in use */ }
+                            }
                         }
                     }
                 }, _cts.Token);
 
                 if (!_cts.Token.IsCancellationRequested)
                 {
-                    StatusText.Text = "Status: Mirror Complete";
+                    StatusText.Text = "Status: All Mirrors Complete";
                     LastSyncText.Text = $"Last Sync: {DateTime.Now:HH:mm:ss}";
-                    _ = UpdateStorageStats();
+                    _ = UpdateStorageStats(); // Final precise refresh
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                StatusText.Text = "Status: Sync Cancelled";
             }
             catch (Exception ex)
             {
-                // Only notify of errors as requested
-                MessageBox.Show($"Sync Error: {ex.Message}", "Mirror Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                StatusText.Text = "Status: Error Occurred";
+                MessageBox.Show($"Sync Error: {ex.Message}");
             }
             finally
             {
                 SetUiState(isSyncing: false);
-                _cts?.Dispose();
             }
         }
         #endregion
@@ -106,67 +144,107 @@ namespace ICloudSync
         #region Storage Stats Logic
         private async Task UpdateStorageStats()
         {
-            string source = ICloudPathBox.Text;
-            if (!Directory.Exists(source)) return;
+            // Capture paths on UI thread before entering Task.Run
+            string pSrc = PhotosSourceBox.Text;
+            string fSrc = FilesSourceBox.Text;
 
             await Task.Run(() =>
             {
                 try
                 {
-                    var files = Directory.GetFiles(source, "*.*", SearchOption.AllDirectories)
-                                         .Select(f => new FileInfo(f)).ToList();
-
-                    long totalBytes = files.Sum(f => f.Length);
-                    long photoBytes = files.Where(f => _photoExts.Contains(f.Extension.ToLower()))
-                                           .Sum(f => f.Length);
+                    long photoBytes = GetDirSize(pSrc);
+                    long fileBytes = GetDirSize(fSrc);
+                    int photoCount = GetFileCount(pSrc);
+                    int fileCount = GetFileCount(fSrc);
 
                     Dispatcher.Invoke(() => {
-                        TotalSizeText.Text = FormatBytes(totalBytes);
                         PhotoSizeText.Text = FormatBytes(photoBytes);
-                        FileCountText.Text = $"Files: {files.Count}";
+                        FileSizeText.Text = FormatBytes(fileBytes);
+                        TotalSizeText.Text = FormatBytes(photoBytes + fileBytes);
+                        FileCountText.Text = $"Files: {photoCount + fileCount}";
                     });
                 }
-                catch { /* Access errors handled silently */ }
+                catch { }
             });
         }
 
+        private long GetDirSize(string path) => 
+            Directory.Exists(path) ? Directory.GetFiles(path, "*.*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length) : 0;
+
+        private int GetFileCount(string path) => 
+            Directory.Exists(path) ? Directory.GetFiles(path, "*.*", SearchOption.AllDirectories).Length : 0;
+
         private string FormatBytes(long bytes)
         {
-            string[] Suffix = { "B", "KB", "MB", "GB", "TB" };
-            int i; double dblSByte = bytes;
-            for (i = 0; i < Suffix.Length && bytes >= 1024; i++, bytes /= 1024) dblSByte = bytes / 1024.0;
-            return $"{dblSByte:0.##} {Suffix[i]}";
+            string[] suffix = { "B", "KB", "MB", "GB", "TB" };
+            int i = 0;
+            double dblSByte = bytes;
+
+            // Use a while loop with double division to keep precision
+            while (dblSByte >= 1024 && i < suffix.Length - 1)
+            {
+                i++;
+                dblSByte /= 1024;
+            }
+
+            // Displays 2 decimal places (e.g., 0.45 MB instead of 0 MB)
+            return $"{dblSByte:0.##} {suffix[i]}";
         }
         #endregion
 
-        #region Configuration & Startup
+        #region Configuration
         private void LoadConfig()
         {
-            if (File.Exists(_configPath))
-            {
-                try {
-                    var config = JsonSerializer.Deserialize<SyncConfig>(File.ReadAllText(_configPath));
-                    if (config == null) return;
-                    ICloudPathBox.Text = config.ICloudPath;
-                    SyncPathBox.Text = config.SyncPath;
-                    IntervalInput.Text = config.IntervalMinutes.ToString();
-                    ScheduledSyncToggle.IsChecked = config.IsScheduled;
-                    StartupToggle.IsChecked = config.RunAtStartup;
-                } catch { }
-            }
+            if (!File.Exists(_configPath)) return;
+            try {
+                var config = JsonSerializer.Deserialize<SyncConfig>(File.ReadAllText(_configPath));
+                if (config == null) return;
+                
+                PhotosSourceBox.Text = config.PhotosSource;
+                PhotosDestBox.Text = config.PhotosDest;
+                FilesSourceBox.Text = config.FilesSource;
+                FilesDestBox.Text = config.FilesDest;
+                
+                IntervalInput.Text = config.IntervalMinutes.ToString();
+                ScheduledSyncToggle.IsChecked = config.IsScheduled;
+                StartupToggle.IsChecked = config.RunAtStartup;
+            } catch { }
         }
 
         private void SaveConfig()
         {
             var config = new SyncConfig {
-                ICloudPath = ICloudPathBox.Text,
-                SyncPath = SyncPathBox.Text,
+                PhotosSource = PhotosSourceBox.Text,
+                PhotosDest = PhotosDestBox.Text,
+                FilesSource = FilesSourceBox.Text,
+                FilesDest = FilesDestBox.Text,
                 IntervalMinutes = int.TryParse(IntervalInput.Text, out int m) ? m : 30,
                 IsScheduled = ScheduledSyncToggle.IsChecked ?? false,
                 RunAtStartup = StartupToggle.IsChecked ?? false
             };
             File.WriteAllText(_configPath, JsonSerializer.Serialize(config));
         }
+        #endregion
+
+        #region UI Event Handlers
+        private void BrowsePhotosSource_Click(object sender, RoutedEventArgs e) => HandleBrowse(PhotosSourceBox);
+        private void BrowsePhotosDest_Click(object sender, RoutedEventArgs e) => HandleBrowse(PhotosDestBox);
+        private void BrowseFilesSource_Click(object sender, RoutedEventArgs e) => HandleBrowse(FilesSourceBox);
+        private void BrowseFilesDest_Click(object sender, RoutedEventArgs e) => HandleBrowse(FilesDestBox);
+
+        private void HandleBrowse(TextBox target)
+        {
+            var dialog = new OpenFolderDialog();
+            if (dialog.ShowDialog() == true) { 
+                target.Text = dialog.FolderName; 
+                SaveConfig(); 
+                _ = UpdateStorageStats(); 
+            }
+        }
+
+        private async void SyncNow_Click(object sender, RoutedEventArgs e) => await RunSyncProcess();
+        private void CancelSync_Click(object sender, RoutedEventArgs e) => _cts?.Cancel();
+        private void SaveConfig_Event(object sender, EventArgs e) => SaveConfig();
 
         private void StartupToggle_Changed(object sender, RoutedEventArgs e)
         {
@@ -177,46 +255,22 @@ namespace ICloudSync
                 SaveConfig();
             } catch { }
         }
-        
-        private void SaveConfig_Event(object sender, EventArgs e) => SaveConfig();
-        #endregion
-
-        #region UI Event Handlers
-        private void BrowseICloud_Click(object sender, RoutedEventArgs e)
-        {
-            var dialog = new OpenFolderDialog();
-            if (dialog.ShowDialog() == true) { 
-                ICloudPathBox.Text = dialog.FolderName; 
-                SaveConfig(); 
-                _ = UpdateStorageStats(); 
-            }
-        }
-
-        private void BrowseSync_Click(object sender, RoutedEventArgs e)
-        {
-            var dialog = new OpenFolderDialog();
-            if (dialog.ShowDialog() == true) { 
-                SyncPathBox.Text = dialog.FolderName; 
-                SaveConfig(); 
-            }
-        }
-
-        private async void SyncNow_Click(object sender, RoutedEventArgs e) => await RunSyncProcess();
-
-        private void CancelSync_Click(object sender, RoutedEventArgs e) => _cts?.Cancel();
 
         private void SetUiState(bool isSyncing)
         {
             SyncNow.IsEnabled = !isSyncing;
             CancelSync.IsEnabled = isSyncing;
-            ICloudPathBox.IsEnabled = !isSyncing;
-            SyncPathBox.IsEnabled = !isSyncing;
+            
+            PhotosSourceBox.IsEnabled = !isSyncing;
+            PhotosDestBox.IsEnabled = !isSyncing;
+            FilesSourceBox.IsEnabled = !isSyncing;
+            FilesDestBox.IsEnabled = !isSyncing;
+            
             if (!isSyncing) SyncProgressBar.Value = 0;
         }
 
         private void SetupScheduler()
         {
-            _scheduler = new DispatcherTimer();
             _scheduler.Tick += async (s, e) => {
                 if (ScheduledSyncToggle.IsChecked == true && SyncNow.IsEnabled)
                     await RunSyncProcess();
@@ -226,14 +280,10 @@ namespace ICloudSync
         }
         #endregion
 
-        #region Tray & Exit Logic
+        #region Tray Logic
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
-            if (!_isExplicitExit)
-            {
-                e.Cancel = true;
-                this.Hide();
-            }
+            if (!_isExplicitExit) { e.Cancel = true; this.Hide(); }
             base.OnClosing(e);
         }
 
@@ -254,8 +304,10 @@ namespace ICloudSync
 
     public class SyncConfig
     {
-        public string ICloudPath { get; set; } = "";
-        public string SyncPath { get; set; } = "";
+        public string PhotosSource { get; set; } = "";
+        public string PhotosDest { get; set; } = "";
+        public string FilesSource { get; set; } = "";
+        public string FilesDest { get; set; } = "";
         public int IntervalMinutes { get; set; } = 30;
         public bool IsScheduled { get; set; } = false;
         public bool RunAtStartup { get; set; } = false;

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("iCloudSync")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4578732969691eb90a4aa1f5befe82da2470c589")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6e87360149e3564a538a7a42649519ad67f01f85")]
 [assembly: System.Reflection.AssemblyProductAttribute("iCloudSync")]
 [assembly: System.Reflection.AssemblyTitleAttribute("iCloudSync")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
