@@ -18,6 +18,7 @@ namespace ICloudSync
         private CancellationTokenSource? _cts;
         private string _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
         private bool _isExplicitExit = false;
+        private int _secondsRemaining;
 
         public MainWindow()
         {
@@ -244,7 +245,16 @@ namespace ICloudSync
 
         private async void SyncNow_Click(object sender, RoutedEventArgs e) => await RunSyncProcess();
         private void CancelSync_Click(object sender, RoutedEventArgs e) => _cts?.Cancel();
-        private void SaveConfig_Event(object sender, EventArgs e) => SaveConfig();
+        private void SaveConfig_Event(object sender, EventArgs e)
+        {
+            SaveConfig();
+            
+            // Reset the countdown immediately to match the new interval
+            if (int.TryParse(IntervalInput.Text, out int m))
+            {
+                _secondsRemaining = m * 60;
+            }
+        }
 
         private void StartupToggle_Changed(object sender, RoutedEventArgs e)
         {
@@ -271,12 +281,40 @@ namespace ICloudSync
 
         private void SetupScheduler()
         {
-            _scheduler.Tick += async (s, e) => {
-                if (ScheduledSyncToggle.IsChecked == true && SyncNow.IsEnabled)
-                    await RunSyncProcess();
-            };
-            _scheduler.Interval = TimeSpan.FromMinutes(int.TryParse(IntervalInput.Text, out int m) ? m : 30);
+            // 1. Get the interval from the input (default to 30 mins)
+            int intervalMins = int.TryParse(IntervalInput.Text, out int m) ? m : 30;
+            _secondsRemaining = intervalMins * 60;
+
+            _scheduler.Interval = TimeSpan.FromSeconds(1); // Tick every second
+            _scheduler.Tick -= Scheduler_Tick; // Prevent double-subscription
+            _scheduler.Tick += Scheduler_Tick;
             _scheduler.Start();
+        }
+
+        private async void Scheduler_Tick(object? sender, EventArgs e)
+        {
+            // Only run if Auto-Sync is checked and we aren't already syncing
+            if (ScheduledSyncToggle.IsChecked != true || !SyncNow.IsEnabled) return;
+
+            _secondsRemaining--;
+
+            if (_secondsRemaining <= 0)
+            {
+                // RESET: Get the latest interval and restart countdown
+                int intervalMins = int.TryParse(IntervalInput.Text, out int m) ? m : 30;
+                _secondsRemaining = intervalMins * 60;
+                
+                await RunSyncProcess();
+            }
+            else
+            {
+                // UPDATE UI: Show countdown in the StatusText
+                // Converts seconds back to a readable MM:SS format
+                TimeSpan t = TimeSpan.FromSeconds(_secondsRemaining);
+                string countdown = t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"mm\:ss");
+                
+                StatusText.Text = $"Status: Idle (Next sync in {countdown})";
+            }
         }
         #endregion
 
