@@ -1,0 +1,17 @@
+<Window x:Class="ICloudSync.LogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Sync Activity Log" Height="400" Width="600" 
+        Background="#121212" Foreground="White" WindowStartupLocation="CenterOwner">
+    <Grid>
+        <TextBox x:Name="LogBox" 
+                 IsReadOnly="True" 
+                 Background="#1A1A1A" 
+                 Foreground="#007ACC" 
+                 FontFamily="Consolas" 
+                 VerticalScrollBarVisibility="Auto" 
+                 BorderThickness="0" 
+                 Padding="10" 
+                 TextWrapping="Wrap"/>
+    </Grid>
+</Window>

@@ -19,6 +19,7 @@ namespace ICloudSync
         private string _configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
         private bool _isExplicitExit = false;
         private int _secondsRemaining;
+        private LogWindow _logWindow = new();
 
         public MainWindow()
         {
@@ -32,19 +33,25 @@ namespace ICloudSync
         private async Task RunSyncProcess()
         {
             SetUiState(isSyncing: true);
+            _logWindow.AppendLog(">>> Sync Started");
+
+            // 1. DYNAMIC PATH RESOLUTION
+            // If boxes are empty, we fall back to the standard iCloud paths automatically
+            string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             
-            // 1. CAPTURE UI VALUES (On the UI Thread)
-            // We must read these strings here because the background thread cannot touch UI objects
-            string pSource = PhotosSourceBox.Text;
+            string pSource = string.IsNullOrWhiteSpace(PhotosSourceBox.Text) 
+                ? Path.Combine(userProfile, "Pictures", "iCloud Photos") : PhotosSourceBox.Text;
+            
+            string fSource = string.IsNullOrWhiteSpace(FilesSourceBox.Text) 
+                ? Path.Combine(userProfile, "iCloudDrive") : FilesSourceBox.Text;
+
             string pDest = PhotosDestBox.Text;
-            string fSource = FilesSourceBox.Text;
             string fDest = FilesDestBox.Text;
 
             _cts = new CancellationTokenSource();
 
             try
             {
-                // 2. Define the jobs using the captured strings and target labels
                 var syncJobs = new List<(string Source, string Dest, string Name, TextBlock SizeLabel)>
                 {
                     (pSource, pDest, "Photos", PhotoSizeText),
@@ -55,66 +62,88 @@ namespace ICloudSync
                 {
                     foreach (var job in syncJobs)
                     {
-                        // Safety check for empty or invalid paths
-                        if (string.IsNullOrWhiteSpace(job.Source) || !Directory.Exists(job.Source)) continue;
-                        if (string.IsNullOrWhiteSpace(job.Dest)) continue;
+                        if (_cts.Token.IsCancellationRequested) return;
 
+                        // Validation
+                        if (string.IsNullOrWhiteSpace(job.Source) || !Directory.Exists(job.Source))
+                        {
+                            _logWindow.AppendLog($"[Skip] {job.Name} source path not found: {job.Source}");
+                            continue;
+                        }
+                        if (string.IsNullOrWhiteSpace(job.Dest))
+                        {
+                            _logWindow.AppendLog($"[Skip] {job.Name} destination not set.");
+                            continue;
+                        }
+
+                        _logWindow.AppendLog($"Scanning {job.Name}...");
                         Directory.CreateDirectory(job.Dest);
+                        
                         var sourceFiles = Directory.GetFiles(job.Source, "*.*", SearchOption.AllDirectories);
                         int totalFiles = sourceFiles.Length;
                         int count = 0;
 
+                        // --- PHASE 1: COPY / UPDATE ---
                         foreach (var srcFile in sourceFiles)
                         {
                             if (_cts.Token.IsCancellationRequested) return;
 
-                            string relPath = Path.GetRelativePath(job.Source, srcFile);
-                            string destFile = Path.Combine(job.Dest, relPath);
-                            Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
-
-                            var fiSrc = new FileInfo(srcFile);
-                            var fiDest = new FileInfo(destFile);
-
-                            // Logic: Only copy if file is missing, size changed, or timestamp changed
-                            if (!fiDest.Exists || fiSrc.Length != fiDest.Length || fiSrc.LastWriteTime != fiDest.LastWriteTime)
+                            try
                             {
-                                File.Copy(srcFile, destFile, true);
+                                string relPath = Path.GetRelativePath(job.Source, srcFile);
+                                string destFile = Path.Combine(job.Dest, relPath);
+                                
+                                var fiSrc = new FileInfo(srcFile);
+                                var fiDest = new FileInfo(destFile);
+
+                                // Only copy if changed or missing
+                                if (!fiDest.Exists || fiSrc.Length != fiDest.Length || fiSrc.LastWriteTime != fiDest.LastWriteTime)
+                                {
+                                    Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
+                                    File.Copy(srcFile, destFile, true);
+                                    _logWindow.AppendLog($"Copied: {relPath}");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logWindow.AppendLog($"Error copying {Path.GetFileName(srcFile)}: {ex.Message}");
                             }
 
                             count++;
                             
-                            // Update UI every 10 files to maintain high performance
+                            // UI Throttling: Update progress every 10 files
                             if (count % 10 == 0 || count == totalFiles)
                             {
                                 double progress = (double)count / totalFiles * 100;
-                                
-                                // Calculate sizes in the background thread
                                 long currentJobSize = GetDirSize(job.Dest); 
-                                
-                                // Calculate the "other" folder size using captured destination paths
                                 string otherDestPath = (job.Name == "Photos") ? fDest : pDest;
                                 long otherJobSize = GetDirSize(otherDestPath);
 
-                                // Push data to the UI thread
                                 Dispatcher.Invoke(() => {
                                     StatusText.Text = $"Status: Syncing {job.Name} ({count}/{totalFiles})";
                                     SyncProgressBar.Value = progress;
-                                    
-                                    // Update individual label and the total odometer
                                     job.SizeLabel.Text = FormatBytes(currentJobSize);
                                     TotalSizeText.Text = FormatBytes(currentJobSize + otherJobSize);
                                 });
                             }
                         }
 
-                        // Mirroring Cleanup: Remove files from Destination that no longer exist in Source
+                        // --- PHASE 2: MIRROR CLEANUP ---
+                        _logWindow.AppendLog($"Cleaning up {job.Name} destination...");
                         var destFiles = Directory.GetFiles(job.Dest, "*.*", SearchOption.AllDirectories);
                         foreach (var dFile in destFiles)
                         {
+                            if (_cts.Token.IsCancellationRequested) return;
+
                             string rel = Path.GetRelativePath(job.Dest, dFile);
                             if (!File.Exists(Path.Combine(job.Source, rel))) 
                             {
-                                try { File.Delete(dFile); } catch { /* File may be in use */ }
+                                try 
+                                { 
+                                    File.Delete(dFile); 
+                                    _logWindow.AppendLog($"Removed: {rel} (No longer in source)");
+                                } 
+                                catch { /* File likely in use */ }
                             }
                         }
                     }
@@ -124,15 +153,18 @@ namespace ICloudSync
                 {
                     StatusText.Text = "Status: All Mirrors Complete";
                     LastSyncText.Text = $"Last Sync: {DateTime.Now:HH:mm:ss}";
-                    _ = UpdateStorageStats(); // Final precise refresh
+                    _logWindow.AppendLog(">>> Sync Finished Successfully.");
+                    _ = UpdateStorageStats(); 
                 }
             }
             catch (OperationCanceledException)
             {
                 StatusText.Text = "Status: Sync Cancelled";
+                _logWindow.AppendLog("!!! Sync Cancelled by user.");
             }
             catch (Exception ex)
             {
+                _logWindow.AppendLog($"FATAL ERROR: {ex.Message}");
                 MessageBox.Show($"Sync Error: {ex.Message}");
             }
             finally
@@ -193,23 +225,46 @@ namespace ICloudSync
         }
         #endregion
 
+        private void OpenLogs_Click(object sender, RoutedEventArgs e)
+        {
+            _logWindow.Show();
+            _logWindow.Activate();
+        }
+
         #region Configuration
         private void LoadConfig()
         {
-            if (!File.Exists(_configPath)) return;
+            // Define Defaults
+            string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string defaultPhotos = Path.Combine(userProfile, "Pictures", "iCloud Photos");
+            string defaultFiles = Path.Combine(userProfile, "iCloudDrive");
+
+            if (!File.Exists(_configPath)) 
+            {
+                // First time run: set defaults immediately
+                PhotosSourceBox.Text = defaultPhotos;
+                FilesSourceBox.Text = defaultFiles;
+                return;
+            }
+
             try {
                 var config = JsonSerializer.Deserialize<SyncConfig>(File.ReadAllText(_configPath));
                 if (config == null) return;
                 
-                PhotosSourceBox.Text = config.PhotosSource;
+                // Use saved value OR default if saved value is missing/empty
+                PhotosSourceBox.Text = string.IsNullOrWhiteSpace(config.PhotosSource) ? defaultPhotos : config.PhotosSource;
                 PhotosDestBox.Text = config.PhotosDest;
-                FilesSourceBox.Text = config.FilesSource;
+                FilesSourceBox.Text = string.IsNullOrWhiteSpace(config.FilesSource) ? defaultFiles : config.FilesSource;
                 FilesDestBox.Text = config.FilesDest;
                 
                 IntervalInput.Text = config.IntervalMinutes.ToString();
                 ScheduledSyncToggle.IsChecked = config.IsScheduled;
                 StartupToggle.IsChecked = config.RunAtStartup;
-            } catch { }
+            } catch { 
+                // Fallback for corrupt JSON
+                PhotosSourceBox.Text = defaultPhotos;
+                FilesSourceBox.Text = defaultFiles;
+            }
         }
 
         private void SaveConfig()
