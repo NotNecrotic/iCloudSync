@@ -1,0 +1,22 @@
+# Build outputs
+/iCloudSync/bin/
+/iCloudSync/obj/
+
+# Visual Studio files
+/iCloudSync/.vs/
+/iCloudSync/*.user
+/iCloudSync/*.suo
+
+# Rider / VS Code (optional)
+/iCloudSync/.idea/
+/iCloudSync/.vscode/
+
+# OS junk
+/iCloudSync/.DS_Store
+/iCloudSync/Thumbs.db
+
+# Logs
+/iCloudSync/*.log
+
+# Publish output (optional)
+/iCloudSync/publish/
