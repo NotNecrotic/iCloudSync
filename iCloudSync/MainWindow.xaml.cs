@@ -40,7 +40,7 @@ namespace ICloudSync
             string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             
             string pSource = string.IsNullOrWhiteSpace(PhotosSourceBox.Text) 
-                ? Path.Combine(userProfile, "Pictures", "iCloud Photos") : PhotosSourceBox.Text;
+                ? Path.Combine(userProfile, "Pictures", "iCloud Photos", "Photos") : PhotosSourceBox.Text;
             
             string fSource = string.IsNullOrWhiteSpace(FilesSourceBox.Text) 
                 ? Path.Combine(userProfile, "iCloudDrive") : FilesSourceBox.Text;
@@ -236,7 +236,7 @@ namespace ICloudSync
         {
             // Define Defaults
             string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            string defaultPhotos = Path.Combine(userProfile, "Pictures", "iCloud Photos");
+            string defaultPhotos = Path.Combine(userProfile, "Pictures", "iCloud Photos", "Photos");
             string defaultFiles = Path.Combine(userProfile, "iCloudDrive");
 
             if (!File.Exists(_configPath)) 
